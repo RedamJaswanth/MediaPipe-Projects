@@ -1,93 +1,223 @@
-# Import Libraries
+# Face and Hand Landmarks Detection using MediaPipe
+
 import cv2
 import time
 import mediapipe as mp
+import os
 
-# Grabbing the Holistic Model from Mediapipe and
-# Initializing the Model
+# --------------------------------------------------
+# MEDIAPIPE HOLISTIC MODEL
+# --------------------------------------------------
+
 mp_holistic = mp.solutions.holistic
+
 holistic_model = mp_holistic.Holistic(
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
 
-# Initializing the drawing utils for drawing the facial landmarks on image
 mp_drawing = mp.solutions.drawing_utils
 
-# (0) in VideoCapture is used to connect to your computer's default camera
+
+# --------------------------------------------------
+# WEBCAM
+# --------------------------------------------------
+
 capture = cv2.VideoCapture(0)
 
-# Initializing current time and precious time for calculating the FPS
+if not capture.isOpened():
+    print("ERROR: Could not open webcam.")
+    exit()
+
+
+# --------------------------------------------------
+# OUTPUT FOLDER
+# --------------------------------------------------
+
+output_folder = r"C:\Users\user\Documents\VS Code Work\Media_Pipe\outputs"
+
+os.makedirs(output_folder, exist_ok=True)
+
+
+# --------------------------------------------------
+# OUTPUT VIDEO
+# --------------------------------------------------
+
+output_video = os.path.join(
+    output_folder,
+    "face_hand_landmarks_output.mp4"
+)
+
+
+# Webcam resolution
+width = 800
+height = 600
+
+fps = 20.0
+
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
+out = cv2.VideoWriter(
+    output_video,
+    fourcc,
+    fps,
+    (width, height)
+)
+
+if not out.isOpened():
+    print("ERROR: Could not create output video.")
+    capture.release()
+    exit()
+
+
+# --------------------------------------------------
+# FPS
+# --------------------------------------------------
+
 previousTime = 0
-currentTime = 0
+
+
+# --------------------------------------------------
+# PROCESS WEBCAM
+# --------------------------------------------------
+
+print("Starting webcam...")
+print("Press ESC to stop.")
+
 
 while capture.isOpened():
-    # capture frame by frame
+
     ret, frame = capture.read()
 
-    # resizing the frame for better view
+    if not ret:
+        print("ERROR: Could not read webcam frame.")
+        break
+
+
+    # Resize frame
     frame = cv2.resize(frame, (800, 600))
 
-    # Converting the from BGR to RGB
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # Making predictions using holistic model
-    # To improve performance, optionally mark the image as not writeable to
-    # pass by reference.
+    # BGR → RGB
+    image = cv2.cvtColor(
+        frame,
+        cv2.COLOR_BGR2RGB
+    )
+
+
+    # Improve performance
     image.flags.writeable = False
+
     results = holistic_model.process(image)
+
     image.flags.writeable = True
 
-    # Converting back the RGB image to BGR
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    # Drawing the Facial Landmarks
+    # RGB → BGR
+    image = cv2.cvtColor(
+        image,
+        cv2.COLOR_RGB2BGR
+    )
+
+
+    # --------------------------------------------------
+    # FACE LANDMARKS
+    # --------------------------------------------------
+
     mp_drawing.draw_landmarks(
         image,
         results.face_landmarks,
-        mp_holistic.FACEMESH_CONTOURS,
-        mp_drawing.DrawingSpec(
-            color=(255, 0, 255),
-            thickness=1,
-            circle_radius=1
-        ),
-        mp_drawing.DrawingSpec(
-            color=(0, 255, 255),
-            thickness=1,
-            circle_radius=1
-        )
+        mp_holistic.FACEMESH_CONTOURS
     )
 
-    # Drawing Right hand Land Marks
+
+    # --------------------------------------------------
+    # RIGHT HAND LANDMARKS
+    # --------------------------------------------------
+
     mp_drawing.draw_landmarks(
         image,
         results.right_hand_landmarks,
         mp_holistic.HAND_CONNECTIONS
     )
 
-    # Drawing Left hand Land Marks
+
+    # --------------------------------------------------
+    # LEFT HAND LANDMARKS
+    # --------------------------------------------------
+
     mp_drawing.draw_landmarks(
         image,
         results.left_hand_landmarks,
         mp_holistic.HAND_CONNECTIONS
     )
 
-    # Calculating the FPS
+
+    # --------------------------------------------------
+    # CALCULATE FPS
+    # --------------------------------------------------
+
     currentTime = time.time()
-    fps = 1 / (currentTime - previousTime)
+
+    if previousTime != 0:
+        fps_display = 1 / (currentTime - previousTime)
+    else:
+        fps_display = 0
+
     previousTime = currentTime
 
-    # Displaying FPS on the image
-    cv2.putText(image, str(int(fps)) + " FPS", (10, 70), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
 
-    # Display the resulting image
-    cv2.imshow("Facial and Hand Landmarks", image)
+    # Display FPS
+    cv2.putText(
+        image,
+        str(int(fps_display)) + " FPS",
+        (10, 70),
+        cv2.FONT_HERSHEY_COMPLEX,
+        1,
+        (0, 255, 0),
+        2
+    )
 
-    # Enter esc key to break the loop
+
+    # --------------------------------------------------
+    # SAVE OUTPUT FRAME
+    # --------------------------------------------------
+
+    out.write(image)
+
+
+    # --------------------------------------------------
+    # DISPLAY WEBCAM
+    # --------------------------------------------------
+
+    cv2.imshow(
+        "Facial and Hand Landmarks",
+        image
+    )
+
+
+    # Press ESC to stop
     if cv2.waitKey(5) & 0xFF == 27:
         break
 
-# When all the process is done
-# Release the capture and destroy all windows
+
+# --------------------------------------------------
+# RELEASE EVERYTHING
+# --------------------------------------------------
+
 capture.release()
+out.release()
+holistic_model.close()
 cv2.destroyAllWindows()
+
+
+# --------------------------------------------------
+# OUTPUT MESSAGE
+# --------------------------------------------------
+
+print()
+print("======================================")
+print("FACE & HAND LANDMARK DETECTION DONE")
+print("======================================")
+print("Output video saved to:")
+print(output_video)
